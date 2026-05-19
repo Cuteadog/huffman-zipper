@@ -3,7 +3,17 @@
 #include "main.h"
 #include "file_io.h"
 #include "format_zip.h"
+#include "huffman.h"
 #define CHUNK 8192
+
+struct letter_count {
+    size_t contentlen;          // 文件总字节数
+    size_t table[MAX_CHAR_NUM]; // 各字符频度
+    double freq[MAX_CHAR_NUM];  // 各字符频率
+} file_letter_count[MAX_FILE_NUM];
+
+// 统计所有文件的平均字符频率
+double letter_average_freq[MAX_CHAR_NUM];
 
 static const uint crc32_table[256] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -51,7 +61,7 @@ static const uint crc32_table[256] = {
     0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
-uint get_crc32(const uchar *data,size_t len)
+static uint get_crc32(const uchar *data,size_t len)
 {
     uint crc=0xFFFFFFFF;
     for(size_t i=0;i<len;i++)
@@ -61,13 +71,35 @@ uint get_crc32(const uchar *data,size_t len)
     return crc^0xFFFFFFFF;
 }
 
-static void write_file_data(FILE *ip,FILE *op)
+static void collect_file_data(FILE *ip,int idx)
 {
+    struct letter_count *file_lc = &file_letter_count[idx];
     uchar data[CHUNK]="";
     size_t datalen=0;
     while((datalen=fread(data,1,sizeof(data),ip))>0)
     {
-        fwrite(data,1,datalen,op);
+        file_lc->contentlen += datalen;
+        for(size_t i=0;i<datalen;i++)
+        {file_lc->table[data[i]]++;}
+    }
+    rewind(ip);
+    for(int i=0;i<MAX_CHAR_NUM;i++)
+    {
+        file_lc->freq[i] = file_lc->table[i] / file_lc->contentlen;
+        /*if(file_lc->table[i]) printf("\'%c\' : %d\n",i,file_lc->table[i]);*/
+    }
+}
+
+static void calcu_average_freq(void)
+{
+    for(int i=0;i<MAX_CHAR_NUM;i++)
+    {
+        double accumu_freq=0;
+        for(int j=0;j<MAX_FILE_NUM;j++)
+        {
+            accumu_freq+=file_letter_count[j].freq[i];
+        }
+        letter_average_freq[i]=accumu_freq/MAX_FILE_NUM;
     }
 }
 
@@ -83,8 +115,7 @@ int output_zip(FILE *fp,int cnt,ushort file_cnt)
         ushort namelen=strlen(file_name[i]);
         fwrite(&namelen,2,1,fp);
         fwrite(file_name[i],1,namelen,fp);
-
-        write_file_data(file_data[i],fp);
+        collect_file_data(file_data[i],i);
     }
     // 霍夫曼码表区
     // 压缩数据区

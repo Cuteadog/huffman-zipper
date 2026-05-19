@@ -1,4 +1,7 @@
 #ifndef HUFFMAN_H_INCLUDED
 #define FORMAT_ZIP_H_INCLUDED
 
+#define MAX_CHAR_NUM 256
+#define MAX_CODE_LEN 256
+
 #endif

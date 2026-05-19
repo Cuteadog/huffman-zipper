@@ -43,7 +43,7 @@ static void get_filename(const char *path,int i)
     /*puts(file_name[i]);*/
 }
 
-static char *get_targetdir(const char *refer_dir,int refer)
+static const char *get_targetdir(const char *refer_dir,int refer)
 {
     // 获取输出目录
     static char output_dir[MAX_PATH_LEN+1]="";
@@ -93,7 +93,7 @@ int file_zipping(const char (*paths)[MAX_PATH_LEN],int cnt)
         return 0;
     }
     // 输出压缩文件
-    char *output_path=get_targetdir(paths[refer],refer);
+    const char *output_path=get_targetdir(paths[refer],refer);
     FILE *fp=fopen(output_path,"wb");
     int flag=output_zip(fp,cnt,(ushort)file_cnt);
     if(flag) puts("Error");
