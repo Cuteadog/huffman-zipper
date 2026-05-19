@@ -18,12 +18,29 @@ static int check_file(FILE *fp)
     return (data==MAGICNUM)?1:2;
 }
 
-static const char *get_filename(const char *path)
+static void get_filename(const char *path,int i)
 {
-    if(path==NULL||*path=='\0') return "";
+    if(path==NULL||*path=='\0') return;
     const char *last_sep=strrchr(path,'\\');
-    if(last_sep==NULL) return "";
-    return last_sep+1;
+    if(last_sep==NULL) return;
+
+    const char *name=last_sep+1;
+    int namelen=strlen(name);
+    if(namelen==0)
+    {
+        puts("Fail to get file name, use \"default\" instead.");
+        name="default";
+        namelen=7;
+    }
+    if(namelen>MAX_FILE_NAME)
+    {
+        printf("File name is too long: %s",namelen);
+        printf("Only the first %d characters will be used.",MAX_FILE_NAME);
+        namelen=MAX_FILE_NAME;
+    }
+    memcpy(file_name[i],name,namelen);
+    file_name[i][namelen]='\0';
+    /*puts(file_name[i]);*/
 }
 
 static char *get_targetdir(const char *refer_dir,int refer)
@@ -60,27 +77,13 @@ int file_zipping(const char (*paths)[MAX_PATH_LEN],int cnt)
         {
             const char *log=flag?"Already a zip file":"Fail to read the file";
             printf("%s: %s\n",log,paths[i]);
-            fclose(file_data[i]);
+            if(flag) fclose(file_data[i]);
             file_data[i]=NULL;
             continue;
         }
         else file_cnt++;
         // 获取文件名
-        const char *name=get_filename(paths[i]);
-        if(*name=='\0')
-        {
-            puts("Fail to get file name, use \"default\" instead.");
-            name="default";
-        }
-        int namelen=strlen(name);
-        if(namelen>MAX_FILE_NAME)
-        {
-            printf("File name is too long: %s",namelen);
-            printf("Only the first %d characters will be used.",MAX_FILE_NAME);
-            namelen=MAX_FILE_NAME;
-        }
-        memcpy(file_name[i],name,namelen);
-        file_name[i][namelen]='\0';
+        get_filename(paths[i],i);
         // 标记第一个有效文件
         if(file_cnt==1) refer=i;
     }
@@ -92,7 +95,7 @@ int file_zipping(const char (*paths)[MAX_PATH_LEN],int cnt)
     // 输出压缩文件
     char *output_path=get_targetdir(paths[refer],refer);
     FILE *fp=fopen(output_path,"wb");
-    int flag=output_zip(fp,cnt);
+    int flag=output_zip(fp,cnt,(ushort)file_cnt);
     if(flag) puts("Error");
     fclose(fp);
     return 0;

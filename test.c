@@ -53,10 +53,6 @@ void output(const char *input_path)
 
 int main(void)
 {
-    char str[100]="hello";
-    scanf("%3[^\n]",str);
-    printf("%llu %s",strlen(str),str);
-    
     //output("D:\\note.txt");
     puts(_fullpath(NULL,"hey.txt",0));
     puts(get_filename("D:\\hey.txt"));

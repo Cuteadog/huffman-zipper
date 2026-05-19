@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <string.h>
 #include "main.h"
 #include "file_io.h"
+#include "format_zip.h"
 #define CHUNK 8192
 
 static const uint crc32_table[256] = {
@@ -59,7 +61,7 @@ uint get_crc32(const uchar *data,size_t len)
     return crc^0xFFFFFFFF;
 }
 
-void write_file_data(FILE *ip,FILE *op)
+static void write_file_data(FILE *ip,FILE *op)
 {
     uchar data[CHUNK]="";
     size_t datalen=0;
@@ -69,12 +71,23 @@ void write_file_data(FILE *ip,FILE *op)
     }
 }
 
-int output_zip(FILE *fp,int cnt)
+int output_zip(FILE *fp,int cnt,ushort file_cnt)
 {
-    for(int i=0;i<cnt;i++)
+    // 文件头
+    fwrite(&MAGICNUM,4,1,fp);
+    fwrite(&VERSION,2,1,fp);
+    fwrite(&file_cnt,2,1,fp);
+    // 文件元数据区
+    for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
     {
-        if(file_data[i]!=NULL)
+        ushort namelen=strlen(file_name[i]);
+        fwrite(&namelen,2,1,fp);
+        fwrite(file_name[i],1,namelen,fp);
+
         write_file_data(file_data[i],fp);
     }
+    // 霍夫曼码表区
+    // 压缩数据区
+    // 校验信息
     return 0;
 }
