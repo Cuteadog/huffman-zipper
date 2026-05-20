@@ -66,22 +66,7 @@ static uint get_crc32(const uchar *data,size_t len)
     return crc^0xFFFFFFFF;
 }
 
-/* 效率对比：此处sum和file[idx]同步累加 vs 之后直接对file累加
-设：
-N = 所有文件的总字节数（sumlen）
-M = 文件数量（cnt）
-C = 字符集大小（MAX_CHAR_NUM == 256）
-
-方案1：
-每个字节执行 2 次加法 + 2 次内存写操作（file[idx]++ 和 sum++）。总操作数 ≈ 2N。
-方案2：
-每个字节执行 1 次加法（仅 file[idx]++）。事后额外执行 C * M 次加法。总操作数 ≈ N + 256M。
-
-比较 2N 与 N + 256M 即比较 N 与 256M：
-若 N > 256M（绝大多数情况，例如 1 个 1KB 文件：1024 > 256；10 个 1KB 文件：10240 > 2560），则方案2的加法次数更少。
-只有文件极小（如每个文件仅几个字节）且数量极大时，方案1才可能更优，但这种场景不常见。
-*/
-static size_t collect_file_data(FILE *ip,int idx)
+static size_t calcu_char_and_len(FILE *ip,int idx)
 {
     uchar data[CHUNK]="";
     size_t datalen=0;
@@ -98,12 +83,12 @@ static size_t collect_file_data(FILE *ip,int idx)
     return file_size[idx].before;
 }
 
-int output_zip(FILE *fp,int cnt,ushort file_cnt)
+static void collect_file_data(int cnt)
 {
     // 统计压缩前的字符频度及文件长度
     for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
     {
-        size_t sumlen=collect_file_data(file_data[i],i);
+        size_t sumlen=calcu_char_and_len(file_data[i],i);
         printf("Filelen(before): %zu bytes\n",sumlen);
     }
     // 累加所有文件的各字符频度并编码
@@ -111,8 +96,8 @@ int output_zip(FILE *fp,int cnt,ushort file_cnt)
     {
         for(int j=0;j<cnt;j++)
         {freq_table[i].sum+=freq_table[i].file[j];}
-        if(freq_table[i].sum==0) continue;
-        printf("'%c': %zu\n",i,freq_table[i].sum);
+        // if(freq_table[i].sum==0) continue;
+        // printf("'%c': %zu\n",i,freq_table[i].sum);
     }
     encode();
     // 计算压缩后的文件预期长度
@@ -122,7 +107,12 @@ int output_zip(FILE *fp,int cnt,ushort file_cnt)
         {file_size[i].after+=freq_table[j].file[i]*code_table[j].len;}
         printf("Filelen(after): %zu bytes\n",(file_size[i].after)/8);
     }
+}
 
+// cnt为总文件数, file_cnt为实际有效数
+int output_zip(FILE *fp,int cnt,ushort file_cnt)
+{
+    collect_file_data(cnt);
     // 文件头
     fwrite(&MAGICNUM,4,1,fp);
     fwrite(&VERSION,2,1,fp);
@@ -137,6 +127,7 @@ int output_zip(FILE *fp,int cnt,ushort file_cnt)
         fwrite(&file_size[i].after,sizeof(size_t),1,fp);
     }
     // 霍夫曼码表区
+
     // 压缩数据区
     // 校验信息
     return 0;

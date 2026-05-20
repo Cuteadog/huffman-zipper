@@ -14,7 +14,6 @@ typedef struct codeTable {
     uchar str[MAX_CODE_LEN+1];  // 霍夫曼编码串
     uchar len;                  // 编码长度 (只占用1字节)
 } codeTable;
-extern contentLen file_size[MAX_FILE_NUM];
 extern freqTable freq_table[MAX_CHAR_NUM];
 extern codeTable code_table[MAX_CHAR_NUM];
 
