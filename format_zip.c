@@ -6,14 +6,13 @@
 #include "huffman.h"
 #define CHUNK 8192
 
-struct letter_count {
-    size_t contentlen;          // 文件总字节数
-    size_t table[MAX_CHAR_NUM]; // 各字符频度
-    double freq[MAX_CHAR_NUM];  // 各字符频率
-} file_letter_count[MAX_FILE_NUM];
+// 各文件总字节数
+size_t content_len[MAX_FILE_NUM];
 
-// 统计所有文件的平均字符频率
-double letter_average_freq[MAX_CHAR_NUM];
+struct freqTable {
+    size_t freq;    // 字符频度
+    double average; // 平均字符频率
+} freq_table[MAX_CHAR_NUM];
 
 static const uint crc32_table[256] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -71,35 +70,26 @@ static uint get_crc32(const uchar *data,size_t len)
     return crc^0xFFFFFFFF;
 }
 
-static void collect_file_data(FILE *ip,int idx)
+static size_t collect_file_data(FILE *ip,int idx)
 {
-    struct letter_count *file_lc = &file_letter_count[idx];
     uchar data[CHUNK]="";
     size_t datalen=0;
     while((datalen=fread(data,1,sizeof(data),ip))>0)
     {
-        file_lc->contentlen += datalen;
+        content_len[idx]+=datalen;
         for(size_t i=0;i<datalen;i++)
-        {file_lc->table[data[i]]++;}
+        {freq_table[data[i]].freq++;}
     }
     rewind(ip);
-    for(int i=0;i<MAX_CHAR_NUM;i++)
-    {
-        file_lc->freq[i] = file_lc->table[i] / file_lc->contentlen;
-        /*if(file_lc->table[i]) printf("\'%c\' : %d\n",i,file_lc->table[i]);*/
-    }
+    return content_len[idx];
 }
 
-static void calcu_average_freq(void)
+static void calcu_average_freq(const size_t sumlen)
 {
     for(int i=0;i<MAX_CHAR_NUM;i++)
     {
-        double accumu_freq=0;
-        for(int j=0;j<MAX_FILE_NUM;j++)
-        {
-            accumu_freq+=file_letter_count[j].freq[i];
-        }
-        letter_average_freq[i]=accumu_freq/MAX_FILE_NUM;
+        freq_table[i].average=freq_table[i].freq/sumlen;
+        /*if(freq_table[i].freq) printf("'%c': %zu\n",i,freq_table[i].freq);*/
     }
 }
 
@@ -109,13 +99,20 @@ int output_zip(FILE *fp,int cnt,ushort file_cnt)
     fwrite(&MAGICNUM,4,1,fp);
     fwrite(&VERSION,2,1,fp);
     fwrite(&file_cnt,2,1,fp);
+    // 文件数据处理
+    size_t sumlen=0;
+    for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
+    {sumlen+=collect_file_data(file_data[i],i);}
+    //calcu_average_freq(sumlen);
+
     // 文件元数据区
     for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
     {
         ushort namelen=strlen(file_name[i]);
         fwrite(&namelen,2,1,fp);
         fwrite(file_name[i],1,namelen,fp);
-        collect_file_data(file_data[i],i);
+        fwrite(&content_len[i],sizeof(size_t),1,fp);
+
     }
     // 霍夫曼码表区
     // 压缩数据区
