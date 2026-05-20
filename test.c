@@ -4,7 +4,9 @@
 #include "format_zip.h"
 #include "huffman.h"
 
-struct freqTable freq_table[MAX_CHAR_NUM];
+struct freqTable {
+    size_t freq;
+} freq_table[MAX_CHAR_NUM];
 Heap heap;
 Node nodes[2*MAX_CHAR_NUM-1];
 uchar codetable[MAX_CHAR_NUM][MAX_CODE_LEN+1];

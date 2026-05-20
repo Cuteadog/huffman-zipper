@@ -6,15 +6,15 @@
 
 Heap heap;
 Node nodes[2*MAX_CHAR_NUM-1];
-uchar codetable[MAX_CHAR_NUM][MAX_CODE_LEN+1];
 
 static int nodes_init(void)
 {
+    // 根据freq_table, 以所有出现过的字符作为初始节点
     int cnt=0;
-    for(int i=0;i<MAX_CHAR_NUM;i++) if(freq_table[i].freq)
+    for(int i=0;i<MAX_CHAR_NUM;i++) if(freq_table[i].sum)
     {
         nodes[cnt].letter=(uchar)i;
-        nodes[cnt].freq=freq_table[i].freq;
+        nodes[cnt].freq=freq_table[i].sum;
         cnt++;
     }
     return cnt;
@@ -29,6 +29,7 @@ static void nodes_swap(Node **a,Node **b)
 
 static void nodes_add(Node *l,Node *r,int cnt)
 {
+    // 添加两个最小节点的父节点 (分支节点)
     Node *new_node = &nodes[cnt];
     new_node->freq = l->freq + r->freq;
     new_node->l = l;
@@ -74,6 +75,7 @@ static void heapify_insert(Node *node)
 
 static Node *heapify_extract(void)
 {
+    // 取出最小节点
     Node *min_node=heap.slot[0];
     heap.slot[0]=heap.slot[heap.len-1];
     heap.len--;
@@ -83,6 +85,7 @@ static Node *heapify_extract(void)
 
 static Node *heapify_build(void)
 {
+    // 先初始化最小堆, 再逐步更新节点, 最后返回根节点
     int cnt=nodes_init();
     for(Node *i=nodes;i-nodes<cnt;i++) heapify_insert(i);
     while(heap.len>1)
@@ -98,11 +101,14 @@ static Node *heapify_build(void)
 
 static void form_code(Node *root,char *codestr,int depth)
 {
+    // 从根节点开始, 递归获取霍夫曼编码串
     if(root==NULL||depth>=MAX_CODE_LEN) return;
     if(root->l==NULL && root->r==NULL)
     {
         codestr[depth]='\0';
-        memcpy(codetable[root->letter],codestr,depth+1);
+        codeTable *letter=&code_table[root->letter];
+        memcpy(letter->str,codestr,depth+1);
+        letter->len=depth;
         return;
     }
     codestr[depth]='0';
@@ -111,8 +117,9 @@ static void form_code(Node *root,char *codestr,int depth)
     form_code(root->r,codestr,depth+1);
 }
 
-void encode()
+void encode(void)
 {
+    // 返回code_table, 但其作为全局变量使用, 故不传参
     Node *root=heapify_build();
     char codestr[MAX_CODE_LEN]="";
     form_code(root,codestr,0);

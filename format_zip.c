@@ -6,13 +6,9 @@
 #include "huffman.h"
 #define CHUNK 8192
 
-// 各文件总字节数
-size_t content_len[MAX_FILE_NUM];
-
-struct freqTable {
-    size_t freq;    // 字符频度
-    double average; // 平均字符频率
-} freq_table[MAX_CHAR_NUM];
+contentLen file_size[MAX_FILE_NUM];
+freqTable freq_table[MAX_CHAR_NUM];
+codeTable code_table[MAX_CHAR_NUM];
 
 static const uint crc32_table[256] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -70,49 +66,75 @@ static uint get_crc32(const uchar *data,size_t len)
     return crc^0xFFFFFFFF;
 }
 
+/* 效率对比：此处sum和file[idx]同步累加 vs 之后直接对file累加
+设：
+N = 所有文件的总字节数（sumlen）
+M = 文件数量（cnt）
+C = 字符集大小（MAX_CHAR_NUM == 256）
+
+方案1：
+每个字节执行 2 次加法 + 2 次内存写操作（file[idx]++ 和 sum++）。总操作数 ≈ 2N。
+方案2：
+每个字节执行 1 次加法（仅 file[idx]++）。事后额外执行 C * M 次加法。总操作数 ≈ N + 256M。
+
+比较 2N 与 N + 256M 即比较 N 与 256M：
+若 N > 256M（绝大多数情况，例如 1 个 1KB 文件：1024 > 256；10 个 1KB 文件：10240 > 2560），则方案2的加法次数更少。
+只有文件极小（如每个文件仅几个字节）且数量极大时，方案1才可能更优，但这种场景不常见。
+*/
 static size_t collect_file_data(FILE *ip,int idx)
 {
     uchar data[CHUNK]="";
     size_t datalen=0;
     while((datalen=fread(data,1,sizeof(data),ip))>0)
     {
-        content_len[idx]+=datalen;
+        file_size[idx].before+=datalen;
         for(size_t i=0;i<datalen;i++)
-        {freq_table[data[i]].freq++;}
+        {
+            //freq_table[i].sum++;
+            freq_table[data[i]].file[idx]++;
+        }
     }
     rewind(ip);
-    return content_len[idx];
-}
-
-static void calcu_average_freq(const size_t sumlen)
-{
-    for(int i=0;i<MAX_CHAR_NUM;i++)
-    {
-        freq_table[i].average=freq_table[i].freq/sumlen;
-        /*if(freq_table[i].freq) printf("'%c': %zu\n",i,freq_table[i].freq);*/
-    }
+    return file_size[idx].before;
 }
 
 int output_zip(FILE *fp,int cnt,ushort file_cnt)
 {
+    // 统计压缩前的字符频度及文件长度
+    for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
+    {
+        size_t sumlen=collect_file_data(file_data[i],i);
+        printf("Filelen(before): %zu bytes\n",sumlen);
+    }
+    // 累加所有文件的各字符频度并编码
+    for(int i=0;i<MAX_CHAR_NUM;i++)
+    {
+        for(int j=0;j<cnt;j++)
+        {freq_table[i].sum+=freq_table[i].file[j];}
+        if(freq_table[i].sum==0) continue;
+        printf("'%c': %zu\n",i,freq_table[i].sum);
+    }
+    encode();
+    // 计算压缩后的文件预期长度
+    for(int i=0;i<cnt;i++)
+    {
+        for(int j=0;j<MAX_CHAR_NUM;j++)
+        {file_size[i].after+=freq_table[j].file[i]*code_table[j].len;}
+        printf("Filelen(after): %zu bytes\n",(file_size[i].after)/8);
+    }
+
     // 文件头
     fwrite(&MAGICNUM,4,1,fp);
     fwrite(&VERSION,2,1,fp);
     fwrite(&file_cnt,2,1,fp);
-    // 文件数据处理
-    size_t sumlen=0;
-    for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
-    {sumlen+=collect_file_data(file_data[i],i);}
-    //calcu_average_freq(sumlen);
-
     // 文件元数据区
     for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
     {
         ushort namelen=strlen(file_name[i]);
         fwrite(&namelen,2,1,fp);
         fwrite(file_name[i],1,namelen,fp);
-        fwrite(&content_len[i],sizeof(size_t),1,fp);
-
+        fwrite(&file_size[i].before,sizeof(size_t),1,fp);
+        fwrite(&file_size[i].after,sizeof(size_t),1,fp);
     }
     // 霍夫曼码表区
     // 压缩数据区

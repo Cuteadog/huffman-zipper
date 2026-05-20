@@ -9,10 +9,11 @@ typedef struct Node {
     size_t freq;
     struct Node *l,*r;
 } Node;
-
 typedef struct Heap {
     int len;
     Node *slot[2*MAX_CHAR_NUM-1];
 } Heap;
+
+void encode(void);
 
 #endif
