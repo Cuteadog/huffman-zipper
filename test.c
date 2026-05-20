@@ -55,7 +55,7 @@ static void heapify_down(int idx)
     while(idx<heap.len)
     {
         int l=2*idx+1, r=2*idx+2;
-        if(l>=heap.len) break;
+        if(l>=4) break;
         int min=heap.slot[idx]->freq<heap.slot[l]->freq?idx:l;
             min=heap.slot[min]->freq<heap.slot[r]->freq?min:r;
         if(min!=idx)
@@ -115,14 +115,14 @@ static void form_code(Node *root,char *codestr,int depth)
 
 int main(void)
 {
-    freq_table['a'].freq=5;
-    freq_table['b'].freq=5;
+    freq_table['a'].freq=1;
+    freq_table['b'].freq=1;
     freq_table['c'].freq=2;
-    freq_table['d'].freq=5;
-    freq_table['e'].freq=1;
-    freq_table['f'].freq=2;
-    freq_table['g'].freq=1;
-    freq_table['h'].freq=1;
+    freq_table['d'].freq=3;
+    freq_table['e'].freq=0;
+    freq_table['f'].freq=0;
+    freq_table['g'].freq=0;
+    freq_table['h'].freq=0;
     Node *root=heapify_build();
     char codestr[MAX_CODE_LEN]="";
     form_code(root,codestr,0);

@@ -53,12 +53,11 @@ static void heapify_down(int idx)
 {
     while(idx<heap.len)
     {
-        int l=2*idx+1, r=2*idx+2;
-        if(l>=heap.len) break;
-        int min=heap.slot[idx]->freq<heap.slot[l]->freq?idx:l;
-            min=heap.slot[min]->freq<heap.slot[r]->freq?min:r;
+        int l=2*idx+1, r=2*idx+2, min=idx;
+        if(l<heap.len && heap.slot[min]->freq>heap.slot[l]->freq) min=l;
+        if(r<heap.len && heap.slot[min]->freq>heap.slot[r]->freq) min=r;
         if(min!=idx)
-        { 
+        {
             nodes_swap(&heap.slot[idx],&heap.slot[min]);
             idx=min;
         }
