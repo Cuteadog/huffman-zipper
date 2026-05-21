@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include "main.h"
 #include "format_zip.h"
 #include "huffman.h"
@@ -99,6 +100,20 @@ static Node *heapify_build(void)
     return heapify_extract();
 }
 
+static void shrink_code(codeTable *letter)
+{
+    // 将编码串通过位运算进一步缩短, len不变
+    uchar str[MAX_CODE_LEN+1]="";
+    uchar *p=str;
+    for(int i=0;i<letter->len;i++)
+    {
+        if(i && i%CHAR_BIT==0) p++;
+        uchar bit = letter->str[i] - '0';
+        *p |= (bit<<(CHAR_BIT-1-i%CHAR_BIT));
+    }
+    memcpy(letter->str,str,letter->len);
+}
+
 static void form_code(Node *root,char *codestr,int depth)
 {
     // 从根节点开始, 递归获取霍夫曼编码串
@@ -109,6 +124,7 @@ static void form_code(Node *root,char *codestr,int depth)
         codeTable *letter=&code_table[root->letter];
         memcpy(letter->str,codestr,depth+1);
         letter->len=depth;
+        shrink_code(letter);
         return;
     }
     codestr[depth]='0';

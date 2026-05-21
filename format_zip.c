@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include "main.h"
 #include "file_io.h"
 #include "format_zip.h"
@@ -83,7 +84,7 @@ static size_t calcu_char_and_len(FILE *ip,int idx)
     return file_size[idx].before;
 }
 
-static void collect_file_data(int cnt)
+static ushort collect_file_data(int cnt)
 {
     // 统计压缩前的字符频度及文件长度
     for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
@@ -91,13 +92,14 @@ static void collect_file_data(int cnt)
         size_t sumlen=calcu_char_and_len(file_data[i],i);
         printf("Filelen(before): %zu bytes\n",sumlen);
     }
-    // 累加所有文件的各字符频度并编码
+    // 累加所有文件的各字符频度并编码, 同时记录出现的字符数
+    ushort letter_cnt=0;
     for(int i=0;i<MAX_CHAR_NUM;i++)
     {
         for(int j=0;j<cnt;j++)
         {freq_table[i].sum+=freq_table[i].file[j];}
-        // if(freq_table[i].sum==0) continue;
-        // printf("'%c': %zu\n",i,freq_table[i].sum);
+        if(freq_table[i].sum) letter_cnt++;
+        /*printf("'%c': %zu\n",i,freq_table[i].sum);*/
     }
     encode();
     // 计算压缩后的文件预期长度
@@ -107,12 +109,13 @@ static void collect_file_data(int cnt)
         {file_size[i].after+=freq_table[j].file[i]*code_table[j].len;}
         printf("Filelen(after): %zu bytes\n",(file_size[i].after)/8);
     }
+    return letter_cnt;
 }
 
 // cnt为总文件数, file_cnt为实际有效数
 int output_zip(FILE *fp,int cnt,ushort file_cnt)
 {
-    collect_file_data(cnt);
+    ushort letter_cnt=collect_file_data(cnt);
     // 文件头
     fwrite(&MAGICNUM,4,1,fp);
     fwrite(&VERSION,2,1,fp);
@@ -127,7 +130,15 @@ int output_zip(FILE *fp,int cnt,ushort file_cnt)
         fwrite(&file_size[i].after,sizeof(size_t),1,fp);
     }
     // 霍夫曼码表区
-
+    fwrite(&letter_cnt,2,1,fp); // 由于字符种类0~256, 而uchar只能到255, 所以只好用ushort
+    for(int i=0;i<MAX_CHAR_NUM;i++) if(freq_table[i].sum)
+    {
+        codeTable *code=&code_table[i];
+        uchar shrank_len=(code->len + CHAR_BIT-1)/CHAR_BIT;
+        fwrite(&i,1,1,fp);
+        fwrite(&code->len,1,1,fp);
+        fwrite(code->str,1,shrank_len,fp);
+    }
     // 压缩数据区
     // 校验信息
     return 0;
