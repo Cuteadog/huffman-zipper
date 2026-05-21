@@ -87,9 +87,9 @@ static size_t calcu_char_and_len(FILE *ip,int idx)
 static ushort collect_file_data(int cnt)
 {
     // 统计压缩前的字符频度及文件长度
-    for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
+    for(int i=0;i<cnt;i++)
     {
-        size_t sumlen=calcu_char_and_len(file_data[i],i);
+        size_t sumlen=calcu_char_and_len(files[i].data,i);
         printf("Filelen(before): %zu bytes\n",sumlen);
     }
     // 累加所有文件的各字符频度并编码, 同时记录出现的字符数
@@ -112,20 +112,19 @@ static ushort collect_file_data(int cnt)
     return letter_cnt;
 }
 
-// cnt为总文件数, file_cnt为实际有效数
-int output_zip(FILE *fp,int cnt,ushort file_cnt)
+int output_zip(FILE *fp,ushort file_cnt)
 {
-    ushort letter_cnt=collect_file_data(cnt);
+    ushort letter_cnt=collect_file_data(file_cnt);
     // 文件头
     fwrite(&MAGICNUM,4,1,fp);
     fwrite(&VERSION,2,1,fp);
     fwrite(&file_cnt,2,1,fp);
     // 文件元数据区
-    for(int i=0;i<cnt;i++) if(file_data[i]!=NULL)
+    for(int i=0;i<file_cnt;i++)
     {
-        ushort namelen=strlen(file_name[i]);
+        ushort namelen=strlen(files[i].name);
         fwrite(&namelen,2,1,fp);
-        fwrite(file_name[i],1,namelen,fp);
+        fwrite(files[i].name,1,namelen,fp);
         fwrite(&file_size[i].before,sizeof(size_t),1,fp);
         fwrite(&file_size[i].after,sizeof(size_t),1,fp);
     }

@@ -26,7 +26,7 @@ int main(int argc,char *argv[])
     }
 
     // 获取文件完整路径
-    char paths[MAX_FILE_NUM][MAX_PATH_LEN]={0};
+    char paths[MAX_FILE_NUM][MAX_PATH_LEN+1]={0};
     int cnt=0;
     if(argc-2>MAX_FILE_NUM) puts("Too many files! Only the front files will processed.");
     for(int i=0;i<argc-2&&i<MAX_FILE_NUM;i++)

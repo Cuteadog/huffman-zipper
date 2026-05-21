@@ -19,6 +19,6 @@ extern codeTable code_table[MAX_CHAR_NUM];
 
 static const uint MAGICNUM = 0x5a486d79; // ymHZ -> Huffman Zipper by ym
 static const ushort VERSION = 0x0001;
-int output_zip(FILE *fp,int cnt,ushort file_cnt);
+int output_zip(FILE *fp,ushort file_cnt);
 
 #endif

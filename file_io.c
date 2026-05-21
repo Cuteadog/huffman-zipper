@@ -4,8 +4,7 @@
 #include "file_io.h"
 #include "format_zip.h"
 
-char file_name[MAX_FILE_NUM][MAX_FILE_NAME+1];
-FILE *file_data[MAX_FILE_NUM];
+File files[MAX_FILE_NUM];
 
 static int check_file(FILE *fp)
 {
@@ -18,7 +17,7 @@ static int check_file(FILE *fp)
     return (data==MAGICNUM)?1:2;
 }
 
-static void get_filename(const char *path,int i)
+static void get_filename(const char *path,int idx)
 {
     if(path==NULL||*path=='\0') return;
     const char *last_sep=strrchr(path,'\\');
@@ -32,28 +31,27 @@ static void get_filename(const char *path,int i)
         name="default";
         namelen=7;
     }
-    if(namelen>MAX_FILE_NAME)
+    if(namelen>MAX_NAME_LEN)
     {
         printf("File name is too long: %s",namelen);
-        printf("Only the first %d characters will be used.",MAX_FILE_NAME);
-        namelen=MAX_FILE_NAME;
+        printf("Only the first %d characters will be used.",MAX_NAME_LEN);
+        namelen=MAX_NAME_LEN;
     }
-    memcpy(file_name[i],name,namelen);
-    file_name[i][namelen]='\0';
-    /*puts(file_name[i]);*/
+    strcpy(files[idx].name,name);
+    /*puts(files[idx].name);*/
 }
 
-static const char *get_targetdir(const char *refer_dir,int refer)
+static const char *get_targetpath(const File *refer_file)
 {
     // 获取输出目录
     static char output_dir[MAX_PATH_LEN+1]="";
-    int dirlen=strlen(refer_dir);
-    int filelen=strlen(file_name[refer]);
-    memcpy(output_dir,refer_dir,dirlen-filelen);
-    output_dir[dirlen-filelen]='\0';
+    int pathlen=strlen(refer_file->path);
+    int filelen=strlen(refer_file->name);
+    memcpy(output_dir,refer_file->path,pathlen-filelen);
+    output_dir[pathlen-filelen]='\0';
     // 获取输出文件名
-    char output_name[MAX_FILE_NAME+1]="";
-    memcpy(output_name,file_name[refer],filelen+1);
+    char output_name[MAX_NAME_LEN+1]="";
+    memcpy(output_name,refer_file->name,filelen+1);
     strtok(output_name,".");
     printf("Input zip name (\"%s\" if empty): ",output_name);
     scanf("%100[^\n]",output_name); // 此处不便用宏常量,只好硬编码
@@ -65,43 +63,42 @@ static const char *get_targetdir(const char *refer_dir,int refer)
 }
 
 // 压缩: 将所有文件打包为一个zip
-int file_zipping(const char (*paths)[MAX_PATH_LEN],int cnt)
+int file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
 {
-    int file_cnt=0,refer=0;
+    ushort file_cnt=0;
     for(int i=0;i<cnt;i++)
     {
         // 检查文件内容
-        file_data[i]=fopen(paths[i],"rb");
-        int flag=check_file(file_data[i]);
+        files[i].data=fopen(paths[i],"rb");
+        int flag=check_file(files[i].data);
         if(flag==0||flag==1)
         {
             const char *log=flag?"Already a zip file":"Fail to read the file";
             printf("%s: %s\n",log,paths[i]);
-            if(flag) fclose(file_data[i]);
-            file_data[i]=NULL;
+            if(flag) fclose(files[i].data);
+            files[i].data=NULL;
             continue;
         }
-        else file_cnt++;
+        // 通过复制路径筛除无效路径 (也便于解压时有一个数组专门存放路径)
+        strcpy(files[file_cnt].path,paths[i]);
         // 获取文件名
-        get_filename(paths[i],i);
-        // 标记第一个有效文件
-        if(file_cnt==1) refer=i;
+        get_filename(paths[i],file_cnt++);
     }
     if(file_cnt==0)
     {
         puts("No files to process.");
         return 0;
     }
-    // 输出压缩文件
-    const char *output_path=get_targetdir(paths[refer],refer);
+    // 以第一个有效文件路径为准, 输出压缩文件
+    const char *output_path=get_targetpath(&files[0]);
     FILE *fp=fopen(output_path,"wb");
-    int flag=output_zip(fp,cnt,(ushort)file_cnt);
+    int flag=output_zip(fp,file_cnt);
     if(flag) puts("Error");
     fclose(fp);
     return 0;
 }
 
-int file_unzipping(const char (*paths)[MAX_PATH_LEN],int cnt)
+int file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
 {
     // 解压缩: 分别解压各个压缩包文件
     // const char *log=flag?"Not a zip file":"Fail to read the file";
