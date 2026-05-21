@@ -137,6 +137,12 @@ void encode(void)
 {
     // 返回code_table, 但其作为全局变量使用, 故不传参
     Node *root=heapify_build();
+    // 如果只有一种字符, 则需单独处理
+    if(root->l==NULL && root->r==NULL)
+    {
+        code_table[root->letter].len=1;
+        return;
+    }
     char codestr[MAX_CODE_LEN]="";
     form_code(root,codestr,0);
 }
