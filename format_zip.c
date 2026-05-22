@@ -71,7 +71,7 @@ static size_t calcu_char_and_len(FILE *ip,int idx)
 {
     uchar data[CHUNK]="";
     size_t datalen=0;
-    while((datalen=fread(data,1,sizeof(data),ip))>0)
+    while((datalen=fread(data,1,CHUNK,ip))>0)
     {
         file_size[idx].before+=datalen;
         for(size_t i=0;i<datalen;i++)
@@ -105,40 +105,88 @@ static ushort collect_file_data(int cnt)
     // 计算压缩后的文件预期长度
     for(int i=0;i<cnt;i++)
     {
+        size_t shranklen=0;
         for(int j=0;j<MAX_CHAR_NUM;j++)
-        {file_size[i].after+=freq_table[j].file[i]*code_table[j].len;}
-        printf("Filelen(after): %zu bytes\n",(file_size[i].after)/8);
+        {shranklen+=freq_table[j].file[i]*code_table[j].len;}
+        file_size[i].after = (shranklen+CHAR_BIT-1)/CHAR_BIT;
+        printf("Filelen(after): %zu bytes\n",file_size[i].after);
     }
     return letter_cnt;
 }
 
-int output_zip(FILE *fp,ushort file_cnt)
+static void write_encoded_str(FILE *op,FILE *fp)
+{
+    uchar istr[CHUNK]="",ostr[CHUNK]="";
+    size_t ilen=0,olen=0;   // olen表示二进制串长
+    while((ilen=fread(istr,1,CHUNK,fp))>0)
+    {
+        // 逐字符编码
+        for(size_t i=0;i<ilen;i++)
+        {
+            // j的初值表示code->str偏移后的最后一位
+            // olen/CHAR_BIT表示已写入ostr的字节数
+            // e.g. code->str: 11000011 101  code->len: 11 bits
+            //      ostr: 01    olen: 2 bits (1 byte)
+            //      ostr[1] = 101 >> 2 => 00101
+            //      ostr[1] |= 11000011 << 6 => 11101
+            //      ostr[0] |= 11000011 >> 2 => 01110000
+            //      ostr: 01110000 11101    olen: 13 bits (2 bytes)
+            const codeTable *code=&code_table[istr[i]];
+            for(int j=(code->len+olen%CHAR_BIT)/CHAR_BIT;j>0;j--)
+            {
+                ostr[olen/CHAR_BIT+j] = code->str[j] >> (olen%CHAR_BIT);
+                ostr[olen/CHAR_BIT+j] |= code->str[j-1] << (CHAR_BIT-olen%CHAR_BIT);
+            }
+            ostr[olen/CHAR_BIT] |= code->str[0] >> (olen%CHAR_BIT);
+            olen += code->len;
+        }
+        // 写入编码串
+        fwrite(ostr,1,olen/CHAR_BIT,op);
+        // 重置编码串 (如果最后一个字节没填满, 则接着下一个循环填)
+        if(olen%CHAR_BIT)
+        {
+            ostr[0]=ostr[olen/CHAR_BIT];
+            memset(ostr+1,0,CHUNK-1);
+        }
+        else memset(ostr,0,CHUNK);
+        olen%=CHAR_BIT;
+    }
+    // 如果最后一个字节没填满, 则一并写入
+    if(olen%CHAR_BIT) fwrite(&ostr[0],1,1,op);
+    rewind(fp);
+}
+
+int output_zip(FILE *op,ushort file_cnt)
 {
     ushort letter_cnt=collect_file_data(file_cnt);
     // 文件头
-    fwrite(&MAGICNUM,4,1,fp);
-    fwrite(&VERSION,2,1,fp);
-    fwrite(&file_cnt,2,1,fp);
+    fwrite(&MAGICNUM,4,1,op);
+    fwrite(&VERSION,2,1,op);
+    fwrite(&file_cnt,2,1,op);
     // 文件元数据区
     for(int i=0;i<file_cnt;i++)
     {
         ushort namelen=strlen(files[i].name);
-        fwrite(&namelen,2,1,fp);
-        fwrite(files[i].name,1,namelen,fp);
-        fwrite(&file_size[i].before,sizeof(size_t),1,fp);
-        fwrite(&file_size[i].after,sizeof(size_t),1,fp);
+        fwrite(&namelen,2,1,op);
+        fwrite(files[i].name,1,namelen,op);
+        fwrite(&file_size[i].before,sizeof(size_t),1,op);
+        fwrite(&file_size[i].after,sizeof(size_t),1,op);
     }
     // 霍夫曼码表区
-    fwrite(&letter_cnt,2,1,fp); // 由于字符种类0~256, 而uchar只能到255, 所以只好用ushort
+    fwrite(&letter_cnt,2,1,op); // 由于字符种类0~256, 而uchar只能到255, 所以只好用ushort
     for(int i=0;i<MAX_CHAR_NUM;i++) if(freq_table[i].sum)
     {
-        codeTable *code=&code_table[i];
+        const codeTable *code=&code_table[i];
         uchar shrank_len=(code->len + CHAR_BIT-1)/CHAR_BIT;
-        fwrite(&i,1,1,fp);
-        fwrite(&code->len,1,1,fp);
-        fwrite(code->str,1,shrank_len,fp);
+        fwrite(&i,1,1,op);
+        fwrite(&code->len,1,1,op);
+        fwrite(code->str,1,shrank_len,op);
     }
     // 压缩数据区
+    for(int i=0;i<file_cnt;i++)
+    {
+        write_encoded_str(op,files[i].data);
+    }
     // 校验信息
     return 0;
 }

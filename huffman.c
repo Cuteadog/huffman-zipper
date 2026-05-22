@@ -103,6 +103,8 @@ static Node *heapify_build(void)
 static void shrink_code(codeTable *letter)
 {
     // 将编码串通过位运算进一步缩短, len不变
+    // e.g. before: '0' '1'
+    //      after : str[0]= 01000000
     uchar str[MAX_CODE_LEN+1]="";
     uchar *p=str;
     for(int i=0;i<letter->len;i++)
