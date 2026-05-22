@@ -57,14 +57,13 @@ static const uint crc32_table[256] = {
     0xb40bbe37, 0xc30c8ea1, 0x5a05df1b, 0x2d02ef8d
 };
 
-static uint get_crc32(const uchar *data,size_t len)
+static void update_crc32(const uchar *data,size_t len,uint *crc)
 {
-    uint crc=0xFFFFFFFF;
     for(size_t i=0;i<len;i++)
     {
-        crc=(crc>>8)^crc32_table[(crc^data[i]) & 0xFF];
+        uint idx=(*crc^data[i]) & 0xFF;
+        *crc=(*crc>>8)^crc32_table[idx];
     }
-    return crc^0xFFFFFFFF;
 }
 
 static size_t calcu_char_and_len(FILE *ip,int idx)
@@ -114,7 +113,7 @@ static ushort collect_file_data(int cnt)
     return letter_cnt;
 }
 
-static void write_encoded_str(FILE *op,FILE *fp)
+static void write_encoded_str(FILE *op,FILE *fp,uint *crc)
 {
     uchar istr[CHUNK]="",ostr[CHUNK]="";
     size_t ilen=0,olen=0;   // olen表示二进制串长
@@ -142,6 +141,7 @@ static void write_encoded_str(FILE *op,FILE *fp)
         }
         // 写入编码串
         fwrite(ostr,1,olen/CHAR_BIT,op);
+        update_crc32(ostr,olen/CHAR_BIT,crc);
         // 重置编码串 (如果最后一个字节没填满, 则接着下一个循环填)
         if(olen%CHAR_BIT)
         {
@@ -152,7 +152,11 @@ static void write_encoded_str(FILE *op,FILE *fp)
         olen%=CHAR_BIT;
     }
     // 如果最后一个字节没填满, 则一并写入
-    if(olen%CHAR_BIT) fwrite(&ostr[0],1,1,op);
+    if(olen%CHAR_BIT)
+    {
+        fwrite(&ostr[0],1,1,op);
+        update_crc32(ostr,1,crc);
+    }
     rewind(fp);
 }
 
@@ -182,11 +186,15 @@ int output_zip(FILE *op,ushort file_cnt)
         fwrite(&code->len,1,1,op);
         fwrite(code->str,1,shrank_len,op);
     }
-    // 压缩数据区
+    // 压缩数据区 (每个文件一个校验信息)
     for(int i=0;i<file_cnt;i++)
     {
-        write_encoded_str(op,files[i].data);
+        uint crc=0xFFFFFFFF;
+        write_encoded_str(op,files[i].data,&crc);
+        crc ^= 0xFFFFFFFF;
+        fwrite(&crc,4,1,op);
     }
-    // 校验信息
+    // 输出压缩后的总长度
+    printf("Ziplen: %ld bytes\n",ftell(op));
     return 0;
 }

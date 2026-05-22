@@ -17,7 +17,8 @@ typedef struct codeTable {
 extern freqTable freq_table[MAX_CHAR_NUM];
 extern codeTable code_table[MAX_CHAR_NUM];
 
-static const uint MAGICNUM = 0x5a486d79; // ymHZ -> Huffman Zipper by ym
+// 原本hz大写以表敬意, 但是y小写不好看, 于是调整了一下
+static const uint MAGICNUM = 0x7a684d59; // YMhz -> huffman zipper by YM
 static const ushort VERSION = 0x0001;
 int output_zip(FILE *fp,ushort file_cnt);
 
