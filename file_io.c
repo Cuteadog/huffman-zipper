@@ -12,33 +12,35 @@ static int check_file(FILE *fp)
     if(fp==NULL) return 0;
     unsigned int data=0;
     fread(&data,1,4,fp);
+    // 1为压缩包
+    if(data==MAGICNUM) return 1;
+    // 2为普通文件
     rewind(fp);
-    // 1为压缩包, 2为普通文件
-    return (data==MAGICNUM)?1:2;
+    return 2;
 }
 
 static void get_filename(const char *path,int idx)
 {
-    if(path==NULL||*path=='\0') return;
+    if(path==NULL||*path=='\0') goto fail;
     const char *last_sep=strrchr(path,'\\');
-    if(last_sep==NULL) return;
+    if(last_sep==NULL) goto fail;
 
     const char *name=last_sep+1;
     int namelen=strlen(name);
-    if(namelen==0)
-    {
-        puts("Fail to get file name, use \"default\" instead.");
-        name="default";
-        namelen=7;
-    }
+    if(namelen==0) goto fail;
     if(namelen>MAX_NAME_LEN)
     {
-        printf("File name is too long: %s",namelen);
-        printf("Only the first %d characters will be used.",MAX_NAME_LEN);
+        printf("File name is too long: %s\n",name);
+        printf("Only the first %d characters will be used.\n",MAX_NAME_LEN);
         namelen=MAX_NAME_LEN;
     }
-    strcpy(files[idx].name,name);
-    /*puts(files[idx].name);*/
+    memcpy(files[idx].name,name,namelen);
+    files[idx].name[namelen]='\0';
+    return;
+
+    fail:
+    puts("Fail to get file name, use \"default\" instead.");
+    strcpy(files[idx].name,"default");
 }
 
 static const char *get_targetpath(const File *refer_file)
@@ -63,7 +65,7 @@ static const char *get_targetpath(const File *refer_file)
 }
 
 // 压缩: 将所有文件打包为一个zip
-int file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
+void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
 {
     ushort file_cnt=0;
     for(int i=0;i<cnt;i++)
@@ -87,19 +89,41 @@ int file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
     if(file_cnt==0)
     {
         puts("No files to process.");
-        return 0;
+        return;
     }
     // 以第一个有效文件路径为准, 输出压缩文件
     const char *output_path=get_targetpath(&files[0]);
     FILE *fp=fopen(output_path,"wb");
-    int flag=output_zip(fp,file_cnt);
-    if(flag) puts("Error");
+    output_zip(fp,file_cnt);
+    printf("\nSuccessfully export to %s\n",output_path);
     fclose(fp);
-    return 0;
 }
 
-int file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
+// 解压缩: 分别解压各个压缩包文件
+void file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
 {
-    // 解压缩: 分别解压各个压缩包文件
     // const char *log=flag?"Not a zip file":"Fail to read the file";
+    for(int i=0;i<cnt;i++)
+    {
+        // 检查 MAGICNUM
+        FILE *zip=fopen(paths[i],"rb");
+        int flag=check_file(zip);
+        if(flag==0||flag==2)
+        {
+            const char *log=flag?"Not a zip file":"Fail to read the file";
+            printf("%s: %s\n",log,paths[i]);
+            if(flag) fclose(zip);
+            zip=NULL;
+            continue;
+        }
+        // 检查文件头
+        ushort version,file_cnt;
+        fread(&version,2,1,zip);    // 不限制版本号
+        fread(&file_cnt,2,1,zip);
+        if(file_cnt>MAX_FILE_NUM || file_cnt<1)
+        {
+            puts("Error: file header corrupted.");
+            return;
+        }
+    }
 }

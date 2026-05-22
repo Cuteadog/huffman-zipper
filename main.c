@@ -45,16 +45,12 @@ int main(int argc,char *argv[])
     if(strcmp(argv[1],"-en")==0)
     {
         puts("Compressing...\n");
-        int flag=file_zipping(paths,cnt);
-        if(flag) puts("Error");
-        puts("\nTask completed.");
+        file_zipping(paths,cnt);
     }
     else if(strcmp(argv[1],"-de")==0)
     {
         puts("Unzipping...\n");
-        int flag=file_unzipping(paths,cnt);
-        if(flag) puts("Error");
-        puts("\nTask completed.");
+        file_unzipping(paths,cnt);
     }
     else puts("Parameter error. Use \"-help\" for help.");
     return 0;

@@ -1,12 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 #include "main.h"
-
-#define WIDTH 10
-#define STR(x) #x
-#define XSTR(x) STR(x)
-#define FMT "%" XSTR(WIDTH) "[^\n]"
 
 #define CHUNK 8192
 #define MAX_CHAR_NUM 256
@@ -51,11 +47,9 @@ static void write_encoded_str(FILE *op,FILE *fp)
 
 int main(void)
 {
+    clock_t start = clock();
+
     printf("%d\n", CHAR_BIT);
-
-    uchar data[1234]="";
-    printf("%zu\n",sizeof(data));
-
     code_table['a'].str[0]= 1 << 7; // 1
     code_table['a'].len = 1;
     code_table['b'].str[0]= 1 << 6; // 01
@@ -67,8 +61,8 @@ int main(void)
     FILE *op=fopen("..\\note.hzip","wb");
     write_encoded_str(op,ip);   // 输入aaabbbccca
 
-    char str[100]="";
-    scanf(FMT,str);
-    puts(str);
+    clock_t end = clock();
+    double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
+    printf("CPU 用时 %.4f 秒\n", elapsed);
     return 0;
 }

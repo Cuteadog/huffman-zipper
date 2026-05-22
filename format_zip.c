@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
+#include <time.h>
 #include "main.h"
 #include "file_io.h"
 #include "format_zip.h"
@@ -86,10 +87,11 @@ static size_t calcu_char_and_len(FILE *ip,int idx)
 static ushort collect_file_data(int cnt)
 {
     // 统计压缩前的字符频度及文件长度
+    puts("\nBefore compression:");
     for(int i=0;i<cnt;i++)
     {
         size_t sumlen=calcu_char_and_len(files[i].data,i);
-        printf("Filelen(before): %zu bytes\n",sumlen);
+        printf("%-30s: %10zu bytes\n",files[i].name,sumlen);
     }
     // 累加所有文件的各字符频度并编码, 同时记录出现的字符数
     ushort letter_cnt=0;
@@ -102,13 +104,14 @@ static ushort collect_file_data(int cnt)
     }
     encode();
     // 计算压缩后的文件预期长度
+    puts("\nAfter compression:");
     for(int i=0;i<cnt;i++)
     {
         size_t shranklen=0;
         for(int j=0;j<MAX_CHAR_NUM;j++)
         {shranklen+=freq_table[j].file[i]*code_table[j].len;}
         file_size[i].after = (shranklen+CHAR_BIT-1)/CHAR_BIT;
-        printf("Filelen(after): %zu bytes\n",file_size[i].after);
+        printf("%-30s: %10zu bytes\n",files[i].name,file_size[i].after);
     }
     return letter_cnt;
 }
@@ -160,8 +163,9 @@ static void write_encoded_str(FILE *op,FILE *fp,uint *crc)
     rewind(fp);
 }
 
-int output_zip(FILE *op,ushort file_cnt)
+void output_zip(FILE *op,ushort file_cnt)
 {
+    clock_t start=clock();
     ushort letter_cnt=collect_file_data(file_cnt);
     // 文件头
     fwrite(&MAGICNUM,4,1,op);
@@ -194,7 +198,8 @@ int output_zip(FILE *op,ushort file_cnt)
         crc ^= 0xFFFFFFFF;
         fwrite(&crc,4,1,op);
     }
-    // 输出压缩后的总长度
-    printf("Ziplen: %ld bytes\n",ftell(op));
-    return 0;
+    // 总结压缩情况
+    clock_t end=clock();
+    printf("\nZiplen: %ld bytes\n",ftell(op));
+    printf("\nTask completed in %ld ms.\n",end-start);
 }

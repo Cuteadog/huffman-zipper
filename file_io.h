@@ -9,7 +9,7 @@ typedef struct File {
 } File;
 extern File files[MAX_FILE_NUM];
 
-int file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt);
-int file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt);
+void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt);
+void file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt);
 
 #endif
