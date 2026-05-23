@@ -11,7 +11,7 @@ int main(int argc,char *argv[])
     {
         puts("");
         puts("Usage:");
-        puts("  zipper.exe [options] <path(s)>");
+        puts("  zipper [options] <path(s)>");
         puts("");
         puts("Options:");
         puts("  -help    Show help.");
@@ -49,8 +49,11 @@ int main(int argc,char *argv[])
     }
     else if(strcmp(argv[1],"-de")==0)
     {
-        puts("Unzipping...\n");
-        file_unzipping(paths,cnt);
+        for(int i=0;i<cnt;i++)
+        {
+            printf("Unzipping...(%d/%d)\n",i,cnt);
+            file_unzipping(paths[i]);
+        }
     }
     else puts("Parameter error. Use \"-help\" for help.");
     return 0;

@@ -100,53 +100,50 @@ void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
     fclose(fp);
 }
 
-// 解压缩: 分别解压各个压缩包文件
-void file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
+// 解压缩: 解压单个压缩包文件
+void file_unzipping(const char *path)
 {
-    for(int i=0;i<cnt;i++)
+    // 检查 MAGICNUM
+    FILE *zip=fopen(path,"rb");
+    int flag=check_file(zip);
+    if(flag==0||flag==2)
     {
-        // 检查 MAGICNUM
-        FILE *zip=fopen(paths[i],"rb");
-        int flag=check_file(zip);
-        if(flag==0||flag==2)
-        {
-            const char *log=flag?"Not a zip file":"Fail to read the file";
-            printf("%s: %s\n",log,paths[i]);
-            if(flag) fclose(zip);
-            zip=NULL;
-            continue;
-        }
-        // 检查文件头
-        ushort version,file_cnt;
-        fread(&version,2,1,zip);    // 不限制版本号
-        fread(&file_cnt,2,1,zip);
-        if(file_cnt>MAX_FILE_NUM || file_cnt<1)
-        {
-            puts("Error: file header corrupted.");
-            return;
-        }
-        // 获取输出目录
-        char output_dir[MAX_PATH_LEN]="";
-        char zip_name[MAX_NAME_LEN]="";
-        get_filename(paths[i],zip_name);
-        // 单文件输出到同一目录下
-        int pathlen=strlen(paths[i]);
-        int namelen=strlen(zip_name);
-        memcpy(output_dir,paths[i],pathlen-namelen);
-        output_dir[pathlen-namelen]='\0';
-        // 多文件默认输出到与压缩包同名的目录下
-        if(file_cnt!=1)
-        {
-            strtok(zip_name,".");
-            printf("Input dir name (\"%s\" if empty): ",zip_name);
-            scanf("%100[^\n]",zip_name); // +1
-            strcat(output_dir,zip_name);
-        }
-        strcat(output_dir,"\\");
-        // 输出解压文件
-        decode_zip(zip,file_cnt,output_dir);
-        printf("\nSuccessfully export to %s\n",output_dir);
-        printf("%hu files in total.\n",file_cnt);
-        fclose(zip);
+        const char *log=flag?"Not a zip file":"Fail to read the file";
+        printf("%s: %s\n",log,path);
+        if(flag) fclose(zip);
+        zip=NULL;
+        return;
     }
+    // 检查文件头
+    ushort version,file_cnt;
+    fread(&version,2,1,zip);    // 不限制版本号
+    fread(&file_cnt,2,1,zip);
+    if(file_cnt>MAX_FILE_NUM || file_cnt<1)
+    {
+        puts("Error: file header corrupted.");
+        return;
+    }
+    // 获取输出目录
+    char output_dir[MAX_PATH_LEN]="";
+    char zip_name[MAX_NAME_LEN]="";
+    get_filename(path,zip_name);
+    // -单文件输出到同一目录下-
+    int pathlen=strlen(path);
+    int namelen=strlen(zip_name);
+    memcpy(output_dir,path,pathlen-namelen);
+    output_dir[pathlen-namelen]='\0';
+    // -多文件默认输出到与压缩包同名的目录下-
+    if(file_cnt!=1)
+    {
+        strtok(zip_name,".");
+        printf("Input dir name (\"%s\" if empty): ",zip_name);
+        scanf("%100[^\n]",zip_name); // +1
+        strcat(output_dir,zip_name);
+    }
+    strcat(output_dir,"\\");
+    // 输出解压文件
+    decode_zip(zip,file_cnt,output_dir);
+    printf("\nSuccessfully export to %s\n",output_dir);
+    printf("%hu files in total.\n",file_cnt);
+    fclose(zip);
 }

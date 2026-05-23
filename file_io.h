@@ -10,6 +10,6 @@ typedef struct File {
 extern File files[MAX_FILE_NUM];
 
 void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt);
-void file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt);
+void file_unzipping(const char *path);
 
 #endif
