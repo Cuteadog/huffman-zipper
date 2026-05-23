@@ -141,8 +141,8 @@ void file_unzipping(const char *path)
     }
     strcat(output_dir,"\\");
     // 输出解压文件
-    decode_zip(zip,file_cnt,output_dir);
-    printf("\nSuccessfully export to %s\n",output_dir);
-    printf("%hu files in total.\n",file_cnt);
+    int cnt=decode_zip(zip,file_cnt,output_dir);
+    printf("\nTarget directory: %s\n",output_dir);
+    printf("Successfully export %d/%hu files.\n",cnt,file_cnt);
     fclose(zip);
 }

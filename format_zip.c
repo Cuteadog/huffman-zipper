@@ -9,7 +9,6 @@
 #define CHUNK 8192
 
 static size_t size_sum[2];  // 用于计算压缩比
-contentLen file_size[MAX_FILE_NUM];
 freqTable freq_table[MAX_CHAR_NUM];
 codeTable code_table[MAX_CHAR_NUM];
 
@@ -74,7 +73,7 @@ static size_t calcu_char_and_len(FILE *ip,int idx)
     size_t datalen=0;
     while((datalen=fread(data,1,CHUNK,ip))>0)
     {
-        file_size[idx].before+=datalen;
+        files[idx].len1+=datalen;
         for(size_t i=0;i<datalen;i++)
         {
             //freq_table[i].sum++;
@@ -82,7 +81,7 @@ static size_t calcu_char_and_len(FILE *ip,int idx)
         }
     }
     rewind(ip);
-    return file_size[idx].before;
+    return files[idx].len1;
 }
 
 static ushort collect_file_data(int cnt)
@@ -112,9 +111,9 @@ static ushort collect_file_data(int cnt)
         size_t shranklen=0;
         for(int j=0;j<MAX_CHAR_NUM;j++)
         {shranklen+=freq_table[j].file[i]*code_table[j].len;}
-        file_size[i].after = (shranklen+CHAR_BIT-1)/CHAR_BIT;
-        printf("%-30s: %10zu bytes\n",files[i].name,file_size[i].after);
-        size_sum[1]+=file_size[i].after;
+        files[i].len2 = (shranklen+CHAR_BIT-1)/CHAR_BIT;
+        printf("%-30s: %10zu bytes\n",files[i].name,files[i].len2);
+        size_sum[1]+=files[i].len2;
     }
     return letter_cnt;
 }
@@ -166,7 +165,7 @@ static void write_encoded_str(FILE *op,FILE *fp,uint *crc)
     rewind(fp);
 }
 
-static int write_decoded_file(FILE *op,FILE *fp,const Node *nodes)
+static int write_decoded_file(File *file,FILE *fp,const Node *nodes)
 {
     uint crc=0xFFFFFFFF;
     uchar istr[CHUNK]="",ostr[CHUNK]="";
@@ -191,8 +190,8 @@ void output_zip(FILE *op,ushort file_cnt)
         ushort namelen=strlen(files[i].name);
         fwrite(&namelen,2,1,op);
         fwrite(files[i].name,1,namelen,op);
-        fwrite(&file_size[i].before,sizeof(size_t),1,op);
-        fwrite(&file_size[i].after,sizeof(size_t),1,op);
+        fwrite(&files[i].len1,sizeof(size_t),1,op);
+        fwrite(&files[i].len2,sizeof(size_t),1,op);
     }
     // 霍夫曼码表区
     fwrite(&letter_cnt,2,1,op); // 由于字符种类0~256, 而uchar只能到255, 所以只好用ushort
@@ -209,6 +208,7 @@ void output_zip(FILE *op,ushort file_cnt)
     {
         uint crc=0xFFFFFFFF;
         write_encoded_str(op,files[i].data,&crc);
+        fclose(files[i].data);
         crc ^= 0xFFFFFFFF;
         fwrite(&crc,4,1,op);
     }
@@ -219,7 +219,7 @@ void output_zip(FILE *op,ushort file_cnt)
     printf("Zip-ratio: %lf\n",1.*size_sum[1]/size_sum[0]);
 }
 
-void decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
+int decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
 {
     clock_t start=clock();
     // 扫描元数据区 
@@ -228,8 +228,8 @@ void decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
         ushort namelen;
         fread(&namelen,2,1,zip);
         fread(files[i].name,1,namelen,zip);
-        fread(&file_size[i].before,sizeof(size_t),1,zip);
-        fread(&file_size[i].after,sizeof(size_t),1,zip);
+        fread(&files[i].len1,sizeof(size_t),1,zip);
+        fread(&files[i].len2,sizeof(size_t),1,zip);
     }
     // 扫描霍夫曼码表区并重建树
     ushort letter_cnt;
@@ -243,15 +243,19 @@ void decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
     }
     const Node *nodes=decode(letter_cnt);
     // 扫描压缩数据区并解压文件
-    for(int i=0;i<file_cnt;i++)
+    int cnt;
+    for(cnt=0;cnt<file_cnt;cnt++)
     {
         char output_path[MAX_PATH_LEN+1]="";
         strcpy(output_path,output_dir);
-        strcat(output_path,files[i].name);
-        FILE *op=fopen(output_path,"wb");
-        int flag=write_decoded_file(op,zip,nodes);
+        strcat(output_path,files[cnt].name);
+        files[cnt].data=fopen(output_path,"wb");
+        int flag=write_decoded_file(&files[cnt],zip,nodes);
+        fclose(files[cnt].data);
+        if(flag) break;
     }
     // 总结
     clock_t end=clock();
     printf("\nTask completed in %ld ms.\n",end-start);
+    return cnt;
 }

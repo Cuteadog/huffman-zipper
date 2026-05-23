@@ -2,10 +2,6 @@
 #define FORMAT_ZIP_H_INCLUDED
 #include "huffman.h"
 
-typedef struct contentLen {
-    size_t before;  // 压缩前
-    size_t after;   // 压缩后
-} contentLen;
 typedef struct freqTable {
     size_t sum;                 // 总字符频度
     size_t file[MAX_FILE_NUM];  // 各文件的字符频度
@@ -21,6 +17,6 @@ extern codeTable code_table[MAX_CHAR_NUM];
 static const uint MAGICNUM = 0x7a684d59; // YMhz -> huffman zipper by YM
 static const ushort VERSION = 0x0001;
 void output_zip(FILE *fp,ushort file_cnt);
-void decode_zip(FILE *zip,ushort file_cnt,const char *output_dir);
+int decode_zip(FILE *zip,ushort file_cnt,const char *output_dir);
 
 #endif
