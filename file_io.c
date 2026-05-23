@@ -19,7 +19,7 @@ static int check_file(FILE *fp)
     return 2;
 }
 
-static void get_filename(const char *path,int idx)
+static void get_filename(const char *path,char *filename)
 {
     if(path==NULL||*path=='\0') goto fail;
     const char *last_sep=strrchr(path,'\\');
@@ -34,26 +34,27 @@ static void get_filename(const char *path,int idx)
         printf("Only the first %d characters will be used.\n",MAX_NAME_LEN);
         namelen=MAX_NAME_LEN;
     }
-    memcpy(files[idx].name,name,namelen);
-    files[idx].name[namelen]='\0';
+    memcpy(filename,name,namelen);
+    filename[namelen]='\0';
     return;
 
     fail:
     puts("Fail to get file name, use \"default\" instead.");
-    strcpy(files[idx].name,"default");
+    strcpy(filename,"default");
 }
 
+// 此函数目前只供压缩使用
 static const char *get_targetpath(const File *refer_file)
 {
     // 获取输出目录
     static char output_dir[MAX_PATH_LEN+1]="";
     int pathlen=strlen(refer_file->path);
-    int filelen=strlen(refer_file->name);
-    memcpy(output_dir,refer_file->path,pathlen-filelen);
-    output_dir[pathlen-filelen]='\0';
+    int namelen=strlen(refer_file->name);
+    memcpy(output_dir,refer_file->path,pathlen-namelen);
+    output_dir[pathlen-namelen]='\0';
     // 获取输出文件名
     char output_name[MAX_NAME_LEN+1]="";
-    memcpy(output_name,refer_file->name,filelen+1);
+    memcpy(output_name,refer_file->name,namelen+1);
     strtok(output_name,".");
     printf("Input zip name (\"%s\" if empty): ",output_name);
     scanf("%100[^\n]",output_name); // 此处不便用宏常量,只好硬编码
@@ -84,7 +85,7 @@ void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
         // 通过复制路径筛除无效路径 (也便于解压时有一个数组专门存放路径)
         strcpy(files[file_cnt].path,paths[i]);
         // 获取文件名
-        get_filename(paths[i],file_cnt++);
+        get_filename(paths[i],files[file_cnt++].name);
     }
     if(file_cnt==0)
     {
@@ -102,7 +103,6 @@ void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
 // 解压缩: 分别解压各个压缩包文件
 void file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
 {
-    // const char *log=flag?"Not a zip file":"Fail to read the file";
     for(int i=0;i<cnt;i++)
     {
         // 检查 MAGICNUM
@@ -125,5 +125,28 @@ void file_unzipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
             puts("Error: file header corrupted.");
             return;
         }
+        // 获取输出目录
+        char output_dir[MAX_PATH_LEN]="";
+        char zip_name[MAX_NAME_LEN]="";
+        get_filename(paths[i],zip_name);
+        // 单文件输出到同一目录下
+        int pathlen=strlen(paths[i]);
+        int namelen=strlen(zip_name);
+        memcpy(output_dir,paths[i],pathlen-namelen);
+        output_dir[pathlen-namelen]='\0';
+        // 多文件默认输出到与压缩包同名的目录下
+        if(file_cnt!=1)
+        {
+            strtok(zip_name,".");
+            printf("Input dir name (\"%s\" if empty): ",zip_name);
+            scanf("%100[^\n]",zip_name); // +1
+            strcat(output_dir,zip_name);
+        }
+        strcat(output_dir,"\\");
+        // 输出解压文件
+        decode_zip(zip,file_cnt,output_dir);
+        printf("\nSuccessfully export to %s\n",output_dir);
+        printf("%hu files in total.\n",file_cnt);
+        fclose(zip);
     }
 }

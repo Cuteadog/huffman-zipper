@@ -15,6 +15,8 @@ codeTable code_table[MAX_CHAR_NUM];
 
 static void write_encoded_str(FILE *op,FILE *fp)
 {
+    clock_t start = clock();
+
     uchar istr[CHUNK]="",ostr[CHUNK]="";
     size_t ilen=0,olen=0;   // olen表示二进制串长
     ilen=fread(istr,1,10,fp);
@@ -43,11 +45,17 @@ static void write_encoded_str(FILE *op,FILE *fp)
         olen%=CHAR_BIT;
     }
     if(olen%CHAR_BIT) fwrite(&ostr[0],1,1,op);
+
+    clock_t end = clock();
+    double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
+    printf("CPU 用时 %.4f 秒\n", elapsed);
 }
 
 int main(void)
 {
-    clock_t start = clock();
+    size_t a=2593907899;
+    size_t b=2596712704;
+    printf("a/b=%lf\n",1.*a/b);
 
     printf("%d\n", CHAR_BIT);
     code_table['a'].str[0]= 1 << 7; // 1
@@ -60,9 +68,5 @@ int main(void)
     FILE *ip=stdin;
     FILE *op=fopen("..\\note.hzip","wb");
     write_encoded_str(op,ip);   // 输入aaabbbccca
-
-    clock_t end = clock();
-    double elapsed = (double)(end - start) / CLOCKS_PER_SEC;
-    printf("CPU 用时 %.4f 秒\n", elapsed);
     return 0;
 }
