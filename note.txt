@@ -23,4 +23,7 @@ fread的用法：
 int arr[10]; fread(arr, sizeof(int), 10, fp);
 
 测试指令：
-zipper.exe -en "..\\note.txt"
+zipper -en "..\\note.txt"
+
+Q: 霍夫曼编码与最小堆同为二叉树, 为什么前者不用索引构建的扁平数组？
+A: 前者节点分布不均, 深度可达255, 最大索引可达2^256-2, 招架不住

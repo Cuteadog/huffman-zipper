@@ -15,5 +15,6 @@ typedef struct Heap {
 } Heap;
 
 void encode(void);
+const Node *decode(const int letter_cnt);
 
 #endif

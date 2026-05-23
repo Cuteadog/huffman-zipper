@@ -44,10 +44,9 @@ static void get_filename(const char *path,char *filename)
 }
 
 // 此函数目前只供压缩使用
-static const char *get_targetpath(const File *refer_file)
+static void get_targetpath(const File *refer_file,char *output_dir)
 {
     // 获取输出目录
-    static char output_dir[MAX_PATH_LEN+1]="";
     int pathlen=strlen(refer_file->path);
     int namelen=strlen(refer_file->name);
     memcpy(output_dir,refer_file->path,pathlen-namelen);
@@ -62,7 +61,6 @@ static const char *get_targetpath(const File *refer_file)
     strcat(output_name,".hzip");
     strcat(output_dir,output_name);
     /*puts(output_dir);*/
-    return output_dir;
 }
 
 // 压缩: 将所有文件打包为一个zip
@@ -93,7 +91,8 @@ void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
         return;
     }
     // 以第一个有效文件路径为准, 输出压缩文件
-    const char *output_path=get_targetpath(&files[0]);
+    char output_path[MAX_PATH_LEN+1]="";
+    get_targetpath(&files[0],output_path);
     FILE *fp=fopen(output_path,"wb");
     output_zip(fp,file_cnt);
     printf("\nSuccessfully export to %s\n",output_path);
@@ -124,8 +123,8 @@ void file_unzipping(const char *path)
         return;
     }
     // 获取输出目录
-    char output_dir[MAX_PATH_LEN]="";
-    char zip_name[MAX_NAME_LEN]="";
+    char output_dir[MAX_PATH_LEN+1]="";
+    char zip_name[MAX_NAME_LEN+1]="";
     get_filename(path,zip_name);
     // -单文件输出到同一目录下-
     int pathlen=strlen(path);

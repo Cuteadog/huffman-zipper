@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <limits.h>
-#include <stdlib.h>
 #include <time.h>
 #include "main.h"
 #include "file_io.h"
@@ -13,27 +12,6 @@ static size_t size_sum[2];  // 用于计算压缩比
 contentLen file_size[MAX_FILE_NUM];
 freqTable freq_table[MAX_CHAR_NUM];
 codeTable code_table[MAX_CHAR_NUM];
-
-static int cmp(const void *p,const void *q)
-{
-    codeTable *a=(codeTable*)p;
-    codeTable *b=(codeTable*)q;
-    return strcmp(a->str,b->str);
-}
-
-static uchar letter_decode(const char *code,uchar cnt)
-{
-    uchar min=0,max=cnt,mid;
-    while(min<max)
-    {
-        mid=min+(max-min)/2;
-        int flag=strcmp(code_table[mid].str,code);
-        if(flag<0) min=mid+1;
-        else if(flag>0) max=mid;
-        else return mid;
-    }
-    return 0;
-}
 
 static const uint crc32_table[256] = {
     0x00000000, 0x77073096, 0xee0e612c, 0x990951ba, 0x076dc419, 0x706af48f,
@@ -188,7 +166,7 @@ static void write_encoded_str(FILE *op,FILE *fp,uint *crc)
     rewind(fp);
 }
 
-static int write_decoded_file(FILE *op,FILE *fp)
+static int write_decoded_file(FILE *op,FILE *fp,const Node *nodes)
 {
     uint crc=0xFFFFFFFF;
     uchar istr[CHUNK]="",ostr[CHUNK]="";
@@ -243,6 +221,7 @@ void output_zip(FILE *op,ushort file_cnt)
 
 void decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
 {
+    clock_t start=clock();
     // 扫描元数据区 
     for(int i=0;i<file_cnt;i++)
     {
@@ -252,7 +231,7 @@ void decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
         fread(&file_size[i].before,sizeof(size_t),1,zip);
         fread(&file_size[i].after,sizeof(size_t),1,zip);
     }
-    // 扫描霍夫曼码表区
+    // 扫描霍夫曼码表区并重建树
     ushort letter_cnt;
     fread(&letter_cnt,2,1,zip);
     for(ushort i=0;i<letter_cnt;i++)
@@ -262,14 +241,17 @@ void decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
         fread(&code->len,1,1,zip);
         fread(code->str,1,(code->len + CHAR_BIT-1)/CHAR_BIT,zip);
     }
-    qsort(code_table,letter_cnt,sizeof(codeTable),cmp);
+    const Node *nodes=decode(letter_cnt);
     // 扫描压缩数据区并解压文件
     for(int i=0;i<file_cnt;i++)
     {
-        char output_path[MAX_PATH_LEN]="";
+        char output_path[MAX_PATH_LEN+1]="";
         strcpy(output_path,output_dir);
         strcat(output_path,files[i].name);
         FILE *op=fopen(output_path,"wb");
-        int flag=write_decoded_file(op,zip);
+        int flag=write_decoded_file(op,zip,nodes);
     }
+    // 总结
+    clock_t end=clock();
+    printf("\nTask completed in %ld ms.\n",end-start);
 }

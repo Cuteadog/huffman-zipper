@@ -5,8 +5,8 @@
 #include "format_zip.h"
 #include "huffman.h"
 
-Heap heap;
-Node nodes[2*MAX_CHAR_NUM-1];
+static Heap heap;
+static Node nodes[2*MAX_CHAR_NUM-1];
 
 static int nodes_init(void)
 {
@@ -145,6 +145,54 @@ void encode(void)
         code_table[root->letter].len=1;
         return;
     }
-    char codestr[MAX_CODE_LEN]="";
+    char codestr[MAX_CODE_LEN+1]="";
     form_code(root,codestr,0);
+}
+
+static void revert_code(int idx,uchar *ostr)
+{
+    const codeTable *code=&code_table[idx];
+    const uchar *istr=code->str;
+    for(int i=0;i<code->len;i++)
+    {
+        int shift=i%CHAR_BIT;
+        if(i && shift==0) istr++;
+        ostr[i]=((*istr)>>(CHAR_BIT-1-shift))&1;
+        ostr[i]+='0';
+    }
+    printf("'%c': %s\n",code->letter,ostr);
+}
+
+const Node *decode(const int letter_cnt)
+{
+    // 初始化霍夫曼树 (以0为根节点)
+    memset(&nodes,0,sizeof(Node)*(2*MAX_CHAR_NUM-1));
+    Node *node_p=&nodes[0];
+    int node_cnt=1;
+    // 逐个解码, 保证字符位于叶节点
+    for(int i=0;i<letter_cnt;i++)
+    {
+        // 获取编码串
+        uchar str[MAX_CODE_LEN+1]="";
+        revert_code(i,str);
+        // 定位节点位置 (0左1右, 无子节点则新建)
+        for(uchar *p=str;(*p)!='\0';p++)
+        {
+            if(*p=='0')
+            {
+                if(node_p->l==NULL) node_p->l=&nodes[node_cnt++];
+                node_p=node_p->l;
+            }
+            else if(*p=='1')
+            {
+                if(node_p->r==NULL) node_p->r=&nodes[node_cnt++];
+                node_p=node_p->r;
+            }
+            else continue;
+        }
+        // 标记叶节点, 回到根节点
+        node_p->letter=code_table[i].letter;
+        node_p=&nodes[0];
+    }
+    return nodes;
 }
