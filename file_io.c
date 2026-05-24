@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <windows.h>
 #include "main.h"
 #include "file_io.h"
 #include "format_zip.h"
@@ -139,6 +140,7 @@ void file_unzipping(const char *path)
         scanf("%100[^\n]",zip_name); // +1
         strcat(output_dir,zip_name);
         strcat(output_dir,"\\");
+        CreateDirectory(output_dir,NULL);
     }
     // 输出解压文件
     int cnt=decode_zip(zip,file_cnt,output_dir);

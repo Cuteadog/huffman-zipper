@@ -168,7 +168,7 @@ static void write_encoded_str(FILE *op,FILE *fp,uint *crc)
 static int write_decoded_file(File *file,FILE *ip,const Node *nodes)
 {
     uint crc=0xFFFFFFFF;
-    uchar istr[CHUNK]="",ostr[CHUNK]="";
+    uchar istr[CHUNK]="",ostr[8*CHUNK]="";
     size_t ilen=0,olen=0;
     size_t rlen=file->len2/CHAR_BIT;// remain len
     size_t flen=0;                  // fetch len
@@ -200,15 +200,8 @@ static int write_decoded_file(File *file,FILE *ip,const Node *nodes)
                     node=nodes;
                 }
             }
-            if(olen>CHUNK-CHAR_BIT)
-            {
-                // 写入解码串并重置
-                fwrite(ostr,1,olen,file->data);
-                memset(ostr,0,olen);
-                olen=0;
-            }
         }
-        // 尾处理
+        // 写入解码串并重置
         fwrite(ostr,1,olen,file->data);
         memset(ostr,0,olen);
         olen=0;
@@ -257,7 +250,6 @@ void output_zip(FILE *op,ushort file_cnt)
         ushort namelen=strlen(files[i].name);
         fwrite(&namelen,2,1,op);
         fwrite(files[i].name,1,namelen,op);
-        fwrite(&files[i].len1,sizeof(size_t),1,op);
         fwrite(&files[i].len2,sizeof(size_t),1,op);
     }
     // 霍夫曼码表区
@@ -290,13 +282,12 @@ void output_zip(FILE *op,ushort file_cnt)
 int decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
 {
     clock_t start=clock();
-    // 扫描元数据区 
+    // 扫描元数据区
     for(int i=0;i<file_cnt;i++)
     {
         ushort namelen;
         fread(&namelen,2,1,zip);
         fread(files[i].name,1,namelen,zip);
-        fread(&files[i].len1,sizeof(size_t),1,zip);
         fread(&files[i].len2,sizeof(size_t),1,zip);
     }
     // 扫描霍夫曼码表区并重建树

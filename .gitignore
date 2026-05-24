@@ -1,4 +1,5 @@
 .vscode/
+docs/
 output/
 *.zip
 霍夫曼编码文件压缩.*
