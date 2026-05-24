@@ -60,6 +60,7 @@ static const uint crc32_table[256] = {
 
 static void update_crc32(const uchar *data,size_t len,uint *crc)
 {
+    // 逐字节更新校验值
     for(size_t i=0;i<len;i++)
     {
         uint idx=(*crc^data[i]) & 0xFF;
@@ -108,12 +109,11 @@ static ushort collect_file_data(int cnt)
     puts("\nAfter compression:");
     for(int i=0;i<cnt;i++)
     {
-        size_t shranklen=0;
         for(int j=0;j<MAX_CHAR_NUM;j++)
-        {shranklen+=freq_table[j].file[i]*code_table[j].len;}
-        files[i].len2 = (shranklen+CHAR_BIT-1)/CHAR_BIT;
-        printf("%-30s: %10zu bytes\n",files[i].name,files[i].len2);
-        size_sum[1]+=files[i].len2;
+        {files[i].len2+=freq_table[j].file[i]*code_table[j].len;}
+        size_t shranklen = (files[i].len2+CHAR_BIT-1)/CHAR_BIT;
+        printf("%-30s: %10zu bytes\n",files[i].name,shranklen);
+        size_sum[1]+=shranklen;
     }
     return letter_cnt;
 }
@@ -165,15 +165,82 @@ static void write_encoded_str(FILE *op,FILE *fp,uint *crc)
     rewind(fp);
 }
 
-static int write_decoded_file(File *file,FILE *fp,const Node *nodes)
+static int write_decoded_file(File *file,FILE *ip,const Node *nodes)
 {
     uint crc=0xFFFFFFFF;
     uchar istr[CHUNK]="",ostr[CHUNK]="";
     size_t ilen=0,olen=0;
-    while((ilen=fread(istr,1,CHUNK,fp))>0)
+    size_t rlen=file->len2/CHAR_BIT;// remain len
+    size_t flen=0;                  // fetch len
+    const Node *node=nodes;
+    while(rlen>0)
     {
-
+        // rlen与flen均服务于ilen
+        flen=rlen<CHUNK?rlen:CHUNK;
+        ilen=fread(istr,1,flen,ip);
+        if(ilen!=flen)
+        {
+            printf("Error: expected %zu bytes, got %zu\n.",flen,ilen);
+            return 1;
+        }
+        rlen-=ilen;
+        // 更新校验值
+        update_crc32(istr,ilen,&crc);
+        // 遍历二进制串
+        for(int i=0;i<ilen;i++)
+        {
+            for(int j=0;j<CHAR_BIT;j++)
+            {
+                uchar bit=((istr[i])>>(CHAR_BIT-1-j))&1;
+                if(bit==0 && node->l!=NULL) node=node->l;
+                if(bit==1 && node->r!=NULL) node=node->r;
+                if(node->l==NULL && node->r==NULL)
+                {
+                    ostr[olen++]=node->letter;
+                    node=nodes;
+                }
+            }
+            if(olen>CHUNK-CHAR_BIT)
+            {
+                // 写入解码串并重置
+                fwrite(ostr,1,olen,file->data);
+                memset(ostr,0,olen);
+                olen=0;
+            }
+        }
+        // 尾处理
+        fwrite(ostr,1,olen,file->data);
+        memset(ostr,0,olen);
+        olen=0;
     }
+    // 最后没填满的一字节单独读取
+    if(file->len2%CHAR_BIT)
+    {
+        ilen=fread(istr,1,1,ip);
+        update_crc32(istr,ilen,&crc);
+        for(int j=0;j<file->len2%CHAR_BIT;j++)
+        {
+            uchar bit=((istr[0])>>(CHAR_BIT-1-j))&1;
+            if(bit==0 && node->l!=NULL) node=node->l;
+            if(bit==1 && node->r!=NULL) node=node->r;
+            if(node->l==NULL && node->r==NULL)
+            {
+                ostr[olen++]=node->letter;
+                node=nodes;
+            }
+        }
+    }
+    // 写入剩余字节
+    if(olen>0) fwrite(ostr,1,olen,file->data);
+    // 检查校验值是否正确
+    uint icrc=0;
+    fread(&icrc,4,1,ip);
+    if((crc^0xFFFFFFFF)!=icrc)
+    {
+        puts("Error: verification failed.");
+        return 1;
+    }
+    return 0;
 }
 
 void output_zip(FILE *op,ushort file_cnt)
@@ -214,8 +281,9 @@ void output_zip(FILE *op,ushort file_cnt)
     }
     // 总结压缩情况
     clock_t end=clock();
+    fpos_t ziplen; fgetpos(op,&ziplen);
     printf("\nTask completed in %ld ms.\n",end-start);
-    printf("Zip-len: %ld bytes\n",ftell(op));
+    printf("Zip-len: %lld bytes\n",ziplen);
     printf("Zip-ratio: %lf\n",1.*size_sum[1]/size_sum[0]);
 }
 
@@ -249,10 +317,15 @@ int decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
         char output_path[MAX_PATH_LEN+1]="";
         strcpy(output_path,output_dir);
         strcat(output_path,files[cnt].name);
+        printf("Output: %s\n",output_path);
         files[cnt].data=fopen(output_path,"wb");
         int flag=write_decoded_file(&files[cnt],zip,nodes);
         fclose(files[cnt].data);
-        if(flag) break;
+        if(flag)
+        {
+            remove(output_path);
+            break;
+        }
     }
     // 总结
     clock_t end=clock();

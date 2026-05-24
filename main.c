@@ -51,7 +51,7 @@ int main(int argc,char *argv[])
     {
         for(int i=0;i<cnt;i++)
         {
-            printf("Unzipping...(%d/%d)\n",i,cnt);
+            printf("Unzipping...(%d/%d)\n",i+1,cnt);
             file_unzipping(paths[i]);
         }
     }

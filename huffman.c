@@ -142,6 +142,7 @@ void encode(void)
     // 如果只有一种字符, 则需单独处理
     if(root->l==NULL && root->r==NULL)
     {
+        // 隐式设置编码串为'0'
         code_table[root->letter].len=1;
         return;
     }
@@ -160,7 +161,7 @@ static void revert_code(int idx,uchar *ostr)
         ostr[i]=((*istr)>>(CHAR_BIT-1-shift))&1;
         ostr[i]+='0';
     }
-    printf("'%c': %s\n",code->letter,ostr);
+    /*printf("'%c': %s\n",code->letter,ostr);*/
 }
 
 const Node *decode(const int letter_cnt)

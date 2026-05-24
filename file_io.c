@@ -138,11 +138,13 @@ void file_unzipping(const char *path)
         printf("Input dir name (\"%s\" if empty): ",zip_name);
         scanf("%100[^\n]",zip_name); // +1
         strcat(output_dir,zip_name);
+        strcat(output_dir,"\\");
     }
-    strcat(output_dir,"\\");
     // 输出解压文件
     int cnt=decode_zip(zip,file_cnt,output_dir);
-    printf("\nTarget directory: %s\n",output_dir);
+    puts("");
+    printf("Target directory: %s\n",output_dir);
     printf("Successfully export %d/%hu files.\n",cnt,file_cnt);
+    puts("");
     fclose(zip);
 }
