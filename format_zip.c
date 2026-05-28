@@ -120,7 +120,7 @@ static ushort collect_file_data(int cnt)
 
 static void write_encoded_str(FILE *op,FILE *fp,uint *crc)
 {
-    uchar istr[CHUNK]="",ostr[CHUNK]="";
+    uchar istr[CHUNK]="",ostr[8*CHUNK]="";
     size_t ilen=0,olen=0;   // olen表示二进制串长
     while((ilen=fread(istr,1,CHUNK,fp))>0)
     {
@@ -187,7 +187,7 @@ static int write_decoded_file(File *file,FILE *ip,const Node *nodes)
         // 更新校验值
         update_crc32(istr,ilen,&crc);
         // 遍历二进制串
-        for(int i=0;i<ilen;i++)
+        for(size_t i=0;i<ilen;i++)
         {
             for(int j=0;j<CHAR_BIT;j++)
             {
@@ -211,7 +211,7 @@ static int write_decoded_file(File *file,FILE *ip,const Node *nodes)
     {
         ilen=fread(istr,1,1,ip);
         update_crc32(istr,ilen,&crc);
-        for(int j=0;j<file->len2%CHAR_BIT;j++)
+        for(size_t j=0;j<file->len2%CHAR_BIT;j++)
         {
             uchar bit=((istr[0])>>(CHAR_BIT-1-j))&1;
             if(bit==0 && node->l!=NULL) node=node->l;
@@ -287,6 +287,11 @@ int decode_zip(FILE *zip,ushort file_cnt,const char *output_dir)
     {
         ushort namelen;
         fread(&namelen,2,1,zip);
+        if(namelen>MAX_NAME_LEN)
+        {
+            puts("Error: file name length exception.");
+            return 0;
+        }
         fread(files[i].name,1,namelen,zip);
         fread(&files[i].len2,sizeof(size_t),1,zip);
     }

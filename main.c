@@ -11,7 +11,7 @@ int main(int argc,char *argv[])
     {
         puts("");
         puts("Usage:");
-        puts("  zipper [options] <path(s)>");
+        puts("  zipper <options> [path(s)]");
         puts("");
         puts("Options:");
         puts("  -help    Show help.");
@@ -21,6 +21,7 @@ int main(int argc,char *argv[])
         puts("Hint:");
         printf("1. A maximum of %d files can be processed at a time.\n",MAX_FILE_NUM);
         puts(  "2. In -en mode, output uses the first valid file's directory.");
+        puts(  "3. If the zip file contains only one file, extract it to the same directory; otherwise, extract it to a folder.");
         puts("");
         return 0;
     }

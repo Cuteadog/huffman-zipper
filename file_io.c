@@ -71,14 +71,14 @@ void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
     for(int i=0;i<cnt;i++)
     {
         // 检查文件内容
-        files[i].data=fopen(paths[i],"rb");
-        int flag=check_file(files[i].data);
+        files[file_cnt].data=fopen(paths[i],"rb");
+        int flag=check_file(files[file_cnt].data);
         if(flag==0||flag==1)
         {
             const char *log=flag?"Already a zip file":"Fail to read the file";
             printf("%s: %s\n",log,paths[i]);
-            if(flag) fclose(files[i].data);
-            files[i].data=NULL;
+            if(flag) fclose(files[file_cnt].data);
+            files[file_cnt].data=NULL;
             continue;
         }
         // 通过复制路径筛除无效路径 (也便于解压时有一个数组专门存放路径)
@@ -120,7 +120,7 @@ void file_unzipping(const char *path)
     fread(&file_cnt,2,1,zip);
     if(file_cnt>MAX_FILE_NUM || file_cnt<1)
     {
-        puts("Error: file header corrupted.");
+        puts("Error: file count exception.");
         return;
     }
     // 获取输出目录
