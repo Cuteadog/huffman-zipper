@@ -11,6 +11,7 @@ typedef struct File {
 } File;
 extern File files[MAX_FILE_NUM];
 
+void get_filedir(const char *path,char *name,char *filedir);
 void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt);
 void file_unzipping(const char *path);
 

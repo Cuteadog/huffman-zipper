@@ -27,3 +27,13 @@ zipper -en "..\\note.txt"
 
 Q: 霍夫曼编码与最小堆同为二叉树, 为什么前者不用索引构建的扁平数组？
 A: 前者节点分布不均, 深度可达255, 最大索引可达2^256-2, 招架不住
+
+考虑压缩后长度分成两段：
+typedef struct File {
+    char name[MAX_NAME_LEN+1];
+    char path[MAX_PATH_LEN+1];
+    FILE *data;
+    size_t len1;    // 压缩前长度 (bytes)
+    size_t len2;    // 压缩后长度 (bytes)
+    uchar lenx;     // 压缩后最后一字节的位数 (bits) (x=extra)
+} File;

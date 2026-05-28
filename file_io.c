@@ -44,24 +44,20 @@ static void get_filename(const char *path,char *filename)
     strcpy(filename,"default");
 }
 
-// 此函数目前只供压缩使用
-static void get_targetpath(const File *refer_file,char *output_dir)
+void get_filedir(const char *path,char *name,char *filedir)
 {
-    // 获取输出目录
-    int pathlen=strlen(refer_file->path);
-    int namelen=strlen(refer_file->name);
-    memcpy(output_dir,refer_file->path,pathlen-namelen);
-    output_dir[pathlen-namelen]='\0';
-    // 获取输出文件名
-    char output_name[MAX_NAME_LEN+1]="";
-    memcpy(output_name,refer_file->name,namelen+1);
-    strtok(output_name,".");
-    printf("Input zip name (\"%s\" if empty): ",output_name);
-    scanf("%100[^\n]",output_name); // 此处不便用宏常量,只好硬编码
-    // 拼接最终路径
-    strcat(output_name,".hzip");
-    strcat(output_dir,output_name);
-    /*puts(output_dir);*/
+    // 如果没有传入文件名则获取，避免重复调用
+    if(name==NULL)
+    {
+        char tempname[MAX_NAME_LEN]="";
+        name=tempname;
+        get_filename(path,name);
+    }
+    // 获取文件目录
+    int pathlen=strlen(path);
+    int namelen=strlen(name);
+    memcpy(filedir,path,pathlen-namelen);
+    filedir[pathlen-namelen]='\0';
 }
 
 // 压缩: 将所有文件打包为一个zip
@@ -91,9 +87,19 @@ void file_zipping(const char (*paths)[MAX_PATH_LEN+1],int cnt)
         puts("No files to process.");
         return;
     }
-    // 以第一个有效文件路径为准, 输出压缩文件
+    // 以第一个有效文件路径为准, 获取输出目录
     char output_path[MAX_PATH_LEN+1]="";
-    get_targetpath(&files[0],output_path);
+    get_filedir(files[0].path,files[0].name,output_path);
+    // 获取输出文件名
+    char output_name[MAX_NAME_LEN+1]="";
+    strcpy(output_name,files[0].name);
+    strtok(output_name,".");
+    printf("Input zip name (\"%s\" if empty): ",output_name);
+    scanf("%100[^\n]",output_name); // 此处不便用宏常量,只好硬编码
+    // 拼接最终路径
+    strcat(output_name,".hzip");
+    strcat(output_path,output_name);
+    // 输出压缩文件
     FILE *fp=fopen(output_path,"wb");
     output_zip(fp,file_cnt);
     printf("\nSuccessfully export to %s\n",output_path);
@@ -123,17 +129,12 @@ void file_unzipping(const char *path)
         puts("Error: file count exception.");
         return;
     }
-    // 获取输出目录
+    // 以压缩包路径为准, 获取输出目录
     char output_dir[MAX_PATH_LEN+1]="";
     char zip_name[MAX_NAME_LEN+1]="";
     get_filename(path,zip_name);
-    // -单文件输出到同一目录下-
-    int pathlen=strlen(path);
-    int namelen=strlen(zip_name);
-    memcpy(output_dir,path,pathlen-namelen);
-    output_dir[pathlen-namelen]='\0';
-    // -多文件默认输出到与压缩包同名的目录下-
-    if(file_cnt!=1)
+    get_filedir(path,zip_name,output_dir);
+    if(file_cnt!=1) // 多文件默认输出到与压缩包同名的目录下
     {
         strtok(zip_name,".");
         printf("Input dir name (\"%s\" if empty): ",zip_name);
